@@ -1,0 +1,38 @@
+     1                                  ; =======================================================================
+     2                                  ;       Second test: call C-func from asm.
+     3                                  ; =======================================================================
+     4                                  
+     5                                  section .text
+     6                                  
+     7                                  extern printf
+     8                                  extern my_add
+     9                                  
+    10                                  global _start
+    11                                  
+    12                                  %define first_num 0x2
+    13                                  %define second_num 0x3
+    14                                  
+    15                                  _start:     
+    16 00000000 BF02000000                          mov edi, first_num
+    17 00000005 BE03000000                          mov esi, second_num
+    18 0000000A E8(00000000)                        call my_add     ; eax = edi + esi
+    19                                              
+    20 0000000F 48BF-                               mov rdi, Msg
+    20 00000011 [0000000000000000] 
+    21 00000019 BE02000000                          mov esi, first_num
+    22 0000001E BA03000000                          mov edx, second_num
+    23 00000023 89C1                                mov ecx, eax
+    24 00000025 E8(00000000)                        call printf            
+    25                                  
+    26 0000002A B83C000000                          mov rax, 0x3C      ; exit64 (rdi)
+    27 0000002F 4831FF                              xor rdi, rdi
+    28 00000032 0F05                                syscall
+    29                                              
+    30                                  section     .data
+    31                                              
+    32 00000000 25642B2564203D2025-     Msg:        db "%d+%d = %d! (It is printed using 'printf'!!!)", 0x0a, 0
+    32 00000009 642120284974206973-
+    32 00000012 207072696E74656420-
+    32 0000001B 7573696E6720277072-
+    32 00000024 696E74662721212129-
+    32 0000002D 0A00               
