@@ -1,0 +1,15 @@
+     1                                  ; =======================================================================
+     2                                  ;       Third test: call asm-func from C.
+     3                                  ; How to learn mangled function's name:  
+     4                                  ; 1) gcc -o lst/c.s -S -masm=intel src_c/c.cpp
+     5                                  ; 2) Find 'call *your func*' and copy the name.
+     6                                  ; =======================================================================
+     7                                  
+     8                                  section .text
+     9                                  
+    10                                  global _Z6my_mulii
+    11                                  
+    12                                  _Z6my_mulii:     
+    13 00000000 89F8                                mov eax, edi
+    14 00000002 0FAFC6                              imul eax, esi
+    15 00000005 C3                                  ret
