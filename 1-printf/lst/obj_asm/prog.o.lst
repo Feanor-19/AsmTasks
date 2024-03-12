@@ -1,0 +1,136 @@
+     1                                  ; =======================================================================
+     2                                  ; int myprintf(const char *format, ...)
+     3                                  ; Supported specifiers:
+     4                                  ;   - %c - one character;
+     5                                  ;   - %s - a c-string;
+     6                                  ;   - %% - a single '%';
+     7                                  ;   - %d - decimal integer (int32_t)
+     8                                  ;   - %x - hex integer (int32_t)
+     9                                  ;   - %o - octal integer (int32_t)
+    10                                  ;   - %b - binary integer (int32_t)
+    11                                  ; =======================================================================
+    12                                  
+    13                                  global _Z9my_printfPKc
+    14                                  
+    15                                  %define CHARBUF_SIZE 20
+    16                                  
+    17                                  section .text
+    18                                  
+    19                                  _Z9my_printfPKc:
+    20 00000000 53                                  push rbx
+    21 00000001 55                                  push rbp
+    22 00000002 4154                                push r12
+    23 00000004 4155                                push r13
+    24 00000006 4156                                push r14
+    25 00000008 4157                                push r15
+    26                                  
+    27                                              ; before first call of print_char
+    28 0000000A 31C0                                xor eax, eax
+    29 0000000C 4D31DB                              xor r11, r11
+    30                                  
+    31                                              ; =====================================
+    32                                              ; main loop
+    33 0000000F 448A17                  main_loop:  mov r10b, [rdi]
+    34 00000012 48FFC7                              inc rdi
+    35                                              
+    36 00000015 4180FA25                            cmp r10b, '%'
+    37 00000019 7413                                je specf
+    38                                              
+    39 0000001B 4180FA5C                            cmp r10b, '\'
+    40 0000001F 740D                                je slash
+    41                                  
+    42                                              ; common char or 0x0
+    43 00000021 E815000000                          call print_char
+    44                                  
+    45 00000026 4180FA00                            cmp r10b, 0x0
+    46 0000002A 75E3                                jne main_loop
+    47 0000002C EB02                                jmp printf_end
+    48                                              ; ---------------
+    49                                              ; specf
+    50                                  specf:
+    51                                  
+    52                                              ; ---------------
+    53                                              ; slash
+    54                                  slash:
+    55                                  
+    56 0000002E EBDF                                jmp main_loop
+    57                                              ; =====================================
+    58                                              ; end of main_loop
+    59                                  printf_end: 
+    60                                  
+    61 00000030 415F                                pop r15
+    62 00000032 415E                                pop r14
+    63 00000034 415D                                pop r13
+    64 00000036 415C                                pop r12
+    65 00000038 5D                                  pop rbp
+    66 00000039 5B                                  pop rbx
+    67                                  
+    68 0000003A C3                                  ret
+    69                                  
+    70                                  ; =======================================================================
+    71                                  ; print_char
+    72                                  ; Description:
+    73                                  ;   Gets one char, stores it into internal buffer. When it's full, calls
+    74                                  ;   syscall write to stdout and resets the buffer. If given char is zero 
+    75                                  ;   byte ('\0'), doesn't store it and flushes buffer immediately. 
+    76                                  ;   Increments number of written bytes (see args) or sets it to -1 in 
+    77                                  ;   case of writing error.
+    78                                  ; Args:
+    79                                  ;   - r10b - char to store to buffer and print.
+    80                                  ;   - eax  - stores number of already written bytes here, or sets it to -1
+    81                                  ;           in case of error.
+    82                                  ; Other used regs: 
+    83                                  ;   - r11 - index in the buffer, must be set to 0 before first call of 
+    84                                  ;           this func; must not be changed outside of this func.
+    85                                  ; =======================================================================
+    86                                  print_char:
+    87 0000003B 4180FA00                            cmp r10b, 0x0
+    88 0000003F 7416                                je flush_buf
+    89                                  
+    90 00000041 83F8FF                              cmp eax, -1     ; check if error already happened
+    91 00000044 7437                                je prn_chr_end
+    92                                  
+    93 00000046 458893[00000000]                    mov [charbuf + r11], r10b
+    94 0000004D 49FFC3                              inc r11
+    95                                  
+    96 00000050 4983FB14                            cmp r11, CHARBUF_SIZE
+    97 00000054 7401                                je flush_buf
+    98                                              
+    99 00000056 C3                                  ret
+   100                                  
+   101                                  flush_buf:  
+   102 00000057 57                                  push rdi
+   103 00000058 56                                  push rsi
+   104 00000059 52                                  push rdx
+   105 0000005A 50                                  push rax 
+   106                                  
+   107 0000005B 4C89DA                              mov rdx, r11            ; num of bytes to write
+   108 0000005E B801000000                          mov rax, 0x1            ; syscall number - write
+   109 00000063 BF01000000                          mov rdi, 0x1            ; stdout
+   110 00000068 488D3425[00000000]                  lea rsi, [charbuf]      ; buffer pointer
+   111 00000070 0F05                                syscall
+   112                                  
+   113                                              ; now eax stores -1 or number of written bytes
+   114 00000072 83F8FF                              cmp eax, -1
+   115 00000075 7406                                je prn_chr_end
+   116 00000077 030424                              add eax, [rsp] ; adding to eax its previous value 
+   117                                  
+   118 0000007A 4D31DB                              xor r11, r11
+   119                                  
+   120                                  prn_chr_end: 
+   121                                              ; if eax equals -1, it must be -1 still; otherwise
+   122                                              ; it already has the needed value
+   123 0000007D 4883C408                            add rsp, 0x8    ; skipping eax
+   124                                  
+   125 00000081 5A                                  pop rdx
+   126 00000082 5E                                  pop rsi
+   127 00000083 5F                                  pop rdi
+   128 00000084 C3                                  ret
+   129                                  
+   130                                  
+   131                                  
+   132                                  section .data
+   133                                  
+   134 00000000 000000000000000000-     charbuf: db CHARBUF_SIZE dup(0)
+   134 00000009 000000000000000000-
+   134 00000012 0000               
