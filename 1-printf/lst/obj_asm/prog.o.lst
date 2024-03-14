@@ -5,16 +5,16 @@
      5                                  ;   - %s - a c-string;
      6                                  ;   - %% - a single '%';
      7                                  ;   - %d - decimal integer (int32_t)
-     8                                  ;   - %x - hex integer (int32_t)
-     9                                  ;   - %o - octal integer (int32_t)
-    10                                  ;   - %b - binary integer (int32_t)
+     8                                  ;   - %x - hex integer (uint32_t)
+     9                                  ;   - %o - octal integer (uint32_t)
+    10                                  ;   - %b - binary integer (uint32_t)
     11                                  ; =======================================================================
     12                                  
     13                                  %define GLOBAL_FUNC_NAME _Z9my_printfPKcz
-    14                                  %define CHARBUF_SIZE 10
+    14                                  %define CHARBUF_SIZE 16
     15                                  
     16                                  global GLOBAL_FUNC_NAME
-    17                                  
+    17                                  ;//TODO - исправить rsi на esi, потому что блин int, а не long
     18                                  section .text
     19                                  
     20                                  GLOBAL_FUNC_NAME:
@@ -126,7 +126,7 @@
    126 0000006A 458893[00000000]                    mov [charbuf + r11], r10b
    127 00000071 49FFC3                              inc r11
    128                                  
-   129 00000074 4983FB0A                            cmp r11, CHARBUF_SIZE
+   129 00000074 4983FB10                            cmp r11, CHARBUF_SIZE
    130 00000078 7401                                je flush_buf
    131                                              
    132 0000007A C3                                  ret
@@ -197,7 +197,7 @@
    197                                  
    198                                              ; and now jmp to corresponding specifier handler
    199 000000BD 4180EA62                            sub r10b, SPECF_SMALLEST
-   200 000000C1 42FF24D5[18000000]                  jmp [jmp_table + r10*8]
+   200 000000C1 42FF24D5[20000000]                  jmp [jmp_table + r10*8]
    201                                  
    202                                              ; treating '%%' specially
    203 000000C9 E891FFFFFF              specf_perc: call print_char ; just print '%', which is already in the r10b 
@@ -209,170 +209,287 @@
    209                                  ; Specifiers handlers. 
    210                                  ; Expects:
    211                                  ;    Each of them expects the argument to be in rsi.
-   212                                  ; =======================================================================
-   213                                  ;//REVIEW - можно было написать все преобразования (b, o, x) однообразно
-   214                                  ; и с помощью одного макроса (или ф-ии), но стоит ли оно того? можно и 
-   215                                  ; вовсе одну общую ф-ю перевода сделать, но это будет еще медленнее?
-   216                                  ; ==========================================================================
-   217                                  ; Macro for converting, called in SPECF_B, SPECF_X
-   218                                  ; Macro argumets:
-   219                                  ;   %1) number of bits to represent one digit (1 for BIN, 4 for HEX, etc)
-   220                                  ;   %2) BIN | HEX
-   221                                  ; ==========================================================================
-   222                                  %macro      Convert 2
+   212                                  ; ==========================================================================
+   213                                  ; Macro for converting & printing, supports BIN, HEX (AND POTENTIALLY BASE 4)
+   214                                  ; Macro argumets:
+   215                                  ;   %1) number of bits to represent one digit (1 for BIN, 4 for HEX, etc)
+   216                                  ;   %2) BIN | HEX
+   217                                  ; Expects:
+   218                                  ;   Number to convert and print in rsi
+   219                                  ; ==========================================================================
+   220                                  %macro      ConvertBH 2
+   221                                  
+   222                                              xor rbx, rbx
    223                                  
-   224                                              xor rbx, rbx
-   225                                  
-   226                                              ; skipping leading zeroes
-   227                                              mov ecx, 64 / %1
-   228                                  %%nzero:    rol rsi, %1
-   229                                              mov bl, sil
-   230                                              and bl, (1 << %1) - 1
-   231                                              cmp bl, 0
-   232                                              loope %%nzero
-   233                                  
-   234                                              jz %%num_0    ; the number to print is zero, special case
-   235                                              ror rsi, %1
-   236                                              inc ecx
-   237                                  
-   238                                  %%loop:     rol rsi, %1
-   239                                              mov bl, sil
-   240                                              and bl, (1 << %1) - 1
-   241                                              mov r10b, [%2 + rbx]
-   242                                              mov r12, rcx ; saving
-   243                                              call print_char
-   244                                              mov rcx, r12  
-   245                                              loop %%loop
+   224                                              ; skipping leading zeroes
+   225                                              mov ecx, 64 / %1
+   226                                  %%nzero:    rol rsi, %1
+   227                                              mov bl, sil
+   228                                              and bl, (1 << %1) - 1
+   229                                              cmp bl, 0
+   230                                              loope %%nzero
+   231                                  
+   232                                              jz %%num_0    ; the number to print is zero, special case
+   233                                              ror rsi, %1
+   234                                              inc ecx
+   235                                  
+   236                                  %%loop:     rol rsi, %1
+   237                                              mov bl, sil
+   238                                              and bl, (1 << %1) - 1
+   239                                              mov r10b, [%2 + rbx]
+   240                                              mov r12, rcx ; saving
+   241                                              call print_char
+   242                                              mov rcx, r12  
+   243                                              loop %%loop
+   244                                  
+   245                                              jmp hndl_specf_end ; instead of ret
    246                                  
-   247                                              jmp hndl_specf_end ; instead of ret
-   248                                  
-   249                                              ; if the number to print is 0
-   250                                  %%num_0:    mov r10b, [%2]
-   251                                              call print_char
+   247                                              ; if the number to print is 0
+   248                                  %%num_0:    mov r10b, [%2]
+   249                                              call print_char
+   250                                  
+   251                                              jmp hndl_specf_end ; instead of ret
    252                                  
-   253                                              jmp hndl_specf_end ; instead of ret
-   254                                  
-   255                                  %endmacro
-   256                                  ; ==========================================================================
-   257                                  specf_b:    Convert 1, BIN
-   257                              <1> specf_b: 
-   223                              <1> 
-   224 000000D3 4831DB              <1>  xor rbx, rbx
-   225                              <1> 
-   226                              <1> 
-   227 000000D6 B940000000          <1>  mov ecx, 64 / %1
-   228 000000DB 48D1C6              <1> %%nzero: rol rsi, %1
-   229 000000DE 4088F3              <1>  mov bl, sil
-   230 000000E1 80E301              <1>  and bl, (1 << %1) - 1
-   231 000000E4 80FB00              <1>  cmp bl, 0
-   232 000000E7 E1F2                <1>  loope %%nzero
-   233                              <1> 
-   234 000000E9 7427                <1>  jz %%num_0
-   235 000000EB 48D1CE              <1>  ror rsi, %1
-   236 000000EE FFC1                <1>  inc ecx
-   237                              <1> 
-   238 000000F0 48D1C6              <1> %%loop: rol rsi, %1
-   239 000000F3 4088F3              <1>  mov bl, sil
-   240 000000F6 80E301              <1>  and bl, (1 << %1) - 1
-   241 000000F9 448A93[10000000]    <1>  mov r10b, [%2 + rbx]
-   242 00000100 4989CC              <1>  mov r12, rcx
-   243 00000103 E857FFFFFF          <1>  call print_char
-   244 00000108 4C89E1              <1>  mov rcx, r12
-   245 0000010B E2E3                <1>  loop %%loop
-   246                              <1> 
-   247 0000010D E938FFFFFF          <1>  jmp hndl_specf_end
-   248                              <1> 
-   249                              <1> 
-   250 00000112 448A1425[10000000]  <1> %%num_0: mov r10b, [%2]
-   251 0000011A E840FFFFFF          <1>  call print_char
-   252                              <1> 
-   253 0000011F E926FFFFFF          <1>  jmp hndl_specf_end
-   254                              <1> 
-   258                                  
-   259 00000124 E921FFFFFF                          jmp hndl_specf_end ; instead of ret
+   253                                  %endmacro
+   254                                  ; ==========================================================================
+   255                                  ; Macro for converting into bases [2, 10]
+   256                                  ; Macro argumets:
+   257                                  ;   %1) the base: 2, or 3, or 4... or 10
+   258                                  ; Expects:
+   259                                  ;   Number to convert and print in esi
    260                                  ; ==========================================================================
-   261 00000129 4989F2                  specf_c:    mov r10, rsi
-   262 0000012C E82EFFFFFF                          call print_char
-   263 00000131 E914FFFFFF                          jmp hndl_specf_end ; instead of ret
-   264                                  ; ==========================================================================
-   265                                  specf_d:    
-   266                                  
-   267                                  ; ==========================================================================
-   268                                  specf_o:
-   269                                  
-   270                                  ; ==========================================================================
-   271                                  specf_s:
-   272                                  
-   273                                  ; ==========================================================================
-   274                                  specf_x:    Convert 4, HEX
-   274                              <1> specf_x: 
+   261                                  %macro      ConvertCmn 1
+   262                                              mov r12, rax    ; saving
+   263                                  
+   264                                              ; --------------------------------------------------------------
+   265                                              ; if the base is 10 and number < 0, print '-' and turn off the highest bit
+   266                                  %if %1 == 10
+   267                                              test esi, 1 << 31
+   268                                              jz %%skip_abs
+   269                                              mov r10b, '-'
+   270                                              call print_char
+   271                                              and esi, (1 << 32) - 1 - (1 << 31)
+   272                                  %endif
+   273                                  
+   274                                  %%skip_abs: 
+   275                                              xor rdx, rdx
+   276                                              xor rax, rax
+   277                                              mov eax, esi
+   278                                              mov ebx, %1 ; because div doesn't support immc
+   279                                              xor rcx, rcx
+   280                                  
+   281                                  %%loop_fw:  div ebx
+   282                                              push rdx
+   283                                              inc rcx
+   284                                              xor rdx, rdx
+   285                                              cmp eax, 0
+   286                                              jne %%loop_fw
+   287                                              
+   288                                              mov rax, r12 ; restoring rax
+   289                                  
+   290                                  %%loop_bw:  pop r10
+   291                                              add r10, '0'
+   292                                              mov r12, rcx    ; saving
+   293                                              call print_char
+   294                                              mov rcx, r12
+   295                                              loop %%loop_bw
+   296                                  
+   297                                  %endmacro
+   298                                  ; ==========================================================================
+   299                                  specf_b:    ConvertBH 1, BIN
+   299                              <1> specf_b: 
+   221                              <1> 
+   222 000000D3 4831DB              <1>  xor rbx, rbx
    223                              <1> 
-   224 00000136 4831DB              <1>  xor rbx, rbx
-   225                              <1> 
-   226                              <1> 
-   227 00000139 B910000000          <1>  mov ecx, 64 / %1
-   228 0000013E 48C1C604            <1> %%nzero: rol rsi, %1
-   229 00000142 4088F3              <1>  mov bl, sil
-   230 00000145 80E30F              <1>  and bl, (1 << %1) - 1
-   231 00000148 80FB00              <1>  cmp bl, 0
-   232 0000014B E1F1                <1>  loope %%nzero
-   233                              <1> 
-   234 0000014D 7429                <1>  jz %%num_0
-   235 0000014F 48C1CE04            <1>  ror rsi, %1
-   236 00000153 FFC1                <1>  inc ecx
-   237                              <1> 
-   238 00000155 48C1C604            <1> %%loop: rol rsi, %1
-   239 00000159 4088F3              <1>  mov bl, sil
-   240 0000015C 80E30F              <1>  and bl, (1 << %1) - 1
-   241 0000015F 448A93[00000000]    <1>  mov r10b, [%2 + rbx]
-   242 00000166 4989CC              <1>  mov r12, rcx
-   243 00000169 E8F1FEFFFF          <1>  call print_char
-   244 0000016E 4C89E1              <1>  mov rcx, r12
-   245 00000171 E2E2                <1>  loop %%loop
+   224                              <1> 
+   225 000000D6 B940000000          <1>  mov ecx, 64 / %1
+   226 000000DB 48D1C6              <1> %%nzero: rol rsi, %1
+   227 000000DE 4088F3              <1>  mov bl, sil
+   228 000000E1 80E301              <1>  and bl, (1 << %1) - 1
+   229 000000E4 80FB00              <1>  cmp bl, 0
+   230 000000E7 E1F2                <1>  loope %%nzero
+   231                              <1> 
+   232 000000E9 7427                <1>  jz %%num_0
+   233 000000EB 48D1CE              <1>  ror rsi, %1
+   234 000000EE FFC1                <1>  inc ecx
+   235                              <1> 
+   236 000000F0 48D1C6              <1> %%loop: rol rsi, %1
+   237 000000F3 4088F3              <1>  mov bl, sil
+   238 000000F6 80E301              <1>  and bl, (1 << %1) - 1
+   239 000000F9 448A93[18000000]    <1>  mov r10b, [%2 + rbx]
+   240 00000100 4989CC              <1>  mov r12, rcx
+   241 00000103 E857FFFFFF          <1>  call print_char
+   242 00000108 4C89E1              <1>  mov rcx, r12
+   243 0000010B E2E3                <1>  loop %%loop
+   244                              <1> 
+   245 0000010D E938FFFFFF          <1>  jmp hndl_specf_end
    246                              <1> 
-   247 00000173 E9D2FEFFFF          <1>  jmp hndl_specf_end
-   248                              <1> 
-   249                              <1> 
-   250 00000178 448A1425[00000000]  <1> %%num_0: mov r10b, [%2]
-   251 00000180 E8DAFEFFFF          <1>  call print_char
+   247                              <1> 
+   248 00000112 448A1425[18000000]  <1> %%num_0: mov r10b, [%2]
+   249 0000011A E840FFFFFF          <1>  call print_char
+   250                              <1> 
+   251 0000011F E926FFFFFF          <1>  jmp hndl_specf_end
    252                              <1> 
-   253 00000185 E9C0FEFFFF          <1>  jmp hndl_specf_end
-   254                              <1> 
-   275                                  
-   276 0000018A E9BBFEFFFF                          jmp hndl_specf_end ; instead of ret
-   277                                  ; ==========================================================================
-   278                                  section .rodata
-   279 00000000 303132333435363738-     HEX:        db '0123456789ABCDEF' 
-   279 00000009 39414243444546     
-   280 00000010 3031                    BIN:        db '01'
-   281                                  
-   282 00000012 90<rep 6h>              align 8
-   283                                  jmp_table:
-   284 00000018 [D300000000000000]      dq specf_b
-   285 00000020 [2901000000000000]      dq specf_c
-   286 00000028 [3601000000000000]      dq specf_d
-   287 00000030 [4A00000000000000]      dq hndl_specf_end
-   288 00000038 [4A00000000000000]      dq hndl_specf_end
-   289 00000040 [4A00000000000000]      dq hndl_specf_end
-   290 00000048 [4A00000000000000]      dq hndl_specf_end
-   291 00000050 [4A00000000000000]      dq hndl_specf_end
-   292 00000058 [4A00000000000000]      dq hndl_specf_end
-   293 00000060 [4A00000000000000]      dq hndl_specf_end
-   294 00000068 [4A00000000000000]      dq hndl_specf_end
-   295 00000070 [4A00000000000000]      dq hndl_specf_end
-   296 00000078 [3601000000000000]      dq specf_o
-   297 00000080 [4A00000000000000]      dq hndl_specf_end
-   298 00000088 [4A00000000000000]      dq hndl_specf_end
-   299 00000090 [4A00000000000000]      dq hndl_specf_end
-   300 00000098 [3601000000000000]      dq specf_s
-   301 000000A0 [4A00000000000000]      dq hndl_specf_end
-   302 000000A8 [4A00000000000000]      dq hndl_specf_end
-   303 000000B0 [4A00000000000000]      dq hndl_specf_end
-   304 000000B8 [4A00000000000000]      dq hndl_specf_end
-   305 000000C0 [4A00000000000000]      dq hndl_specf_end
-   306 000000C8 [3601000000000000]      dq specf_x
-   307                                  
-   308                                  section .data
-   309                                  
-   310 00000000 000000000000000000-     charbuf: db CHARBUF_SIZE dup(0)
-   310 00000009 00                 
+   300                                  
+   301 00000124 E921FFFFFF                          jmp hndl_specf_end ; instead of ret
+   302                                  ; ==========================================================================
+   303 00000129 4989F2                  specf_c:    mov r10, rsi
+   304 0000012C E82EFFFFFF                          call print_char
+   305 00000131 E914FFFFFF                          jmp hndl_specf_end ; instead of ret
+   306                                  ; ==========================================================================
+   307                                  specf_d:    ConvertCmn 10
+   307                              <1> specf_d: 
+   262 00000136 4989C4              <1>  mov r12, rax
+   263                              <1> 
+   264                              <1> 
+   265                              <1> 
+   266                              <1> %if %1 == 10
+   267 00000139 F7C600000080        <1>  test esi, 1 << 31
+   268 0000013F 740E                <1>  jz %%skip_abs
+   269 00000141 41B22D              <1>  mov r10b, '-'
+   270 00000144 E816FFFFFF          <1>  call print_char
+   271 00000149 81E6FFFFFF7F        <1>  and esi, (1 << 32) - 1 - (1 << 31)
+   272                              <1> %endif
+   273                              <1> 
+   274                              <1> %%skip_abs:
+   275 0000014F 4831D2              <1>  xor rdx, rdx
+   276 00000152 4831C0              <1>  xor rax, rax
+   277 00000155 89F0                <1>  mov eax, esi
+   278 00000157 BB0A000000          <1>  mov ebx, %1
+   279 0000015C 4831C9              <1>  xor rcx, rcx
+   280                              <1> 
+   281 0000015F F7F3                <1> %%loop_fw: div ebx
+   282 00000161 52                  <1>  push rdx
+   283 00000162 48FFC1              <1>  inc rcx
+   284 00000165 4831D2              <1>  xor rdx, rdx
+   285 00000168 83F800              <1>  cmp eax, 0
+   286 0000016B 75F2                <1>  jne %%loop_fw
+   287                              <1> 
+   288 0000016D 4C89E0              <1>  mov rax, r12
+   289                              <1> 
+   290 00000170 415A                <1> %%loop_bw: pop r10
+   291 00000172 4983C230            <1>  add r10, '0'
+   292 00000176 4989CC              <1>  mov r12, rcx
+   293 00000179 E8E1FEFFFF          <1>  call print_char
+   294 0000017E 4C89E1              <1>  mov rcx, r12
+   295 00000181 E2ED                <1>  loop %%loop_bw
+   296                              <1> 
+   308                                  
+   309 00000183 E9C2FEFFFF                          jmp hndl_specf_end
+   310                                  ; ==========================================================================
+   311                                  specf_o:    ConvertCmn 8
+   311                              <1> specf_o: 
+   262 00000188 4989C4              <1>  mov r12, rax
+   263                              <1> 
+   264                              <1> 
+   265                              <1> 
+   266                              <1> %if %1 == 10
+   267                              <1>  test esi, 1 << 31
+   268                              <1>  jz %%skip_abs
+   269                              <1>  mov r10b, '-'
+   270                              <1>  call print_char
+   271                              <1>  and esi, (1 << 32) - 1 - (1 << 31)
+   272                              <1> %endif
+   273                              <1> 
+   274                              <1> %%skip_abs:
+   275 0000018B 4831D2              <1>  xor rdx, rdx
+   276 0000018E 4831C0              <1>  xor rax, rax
+   277 00000191 89F0                <1>  mov eax, esi
+   278 00000193 BB08000000          <1>  mov ebx, %1
+   279 00000198 4831C9              <1>  xor rcx, rcx
+   280                              <1> 
+   281 0000019B F7F3                <1> %%loop_fw: div ebx
+   282 0000019D 52                  <1>  push rdx
+   283 0000019E 48FFC1              <1>  inc rcx
+   284 000001A1 4831D2              <1>  xor rdx, rdx
+   285 000001A4 83F800              <1>  cmp eax, 0
+   286 000001A7 75F2                <1>  jne %%loop_fw
+   287                              <1> 
+   288 000001A9 4C89E0              <1>  mov rax, r12
+   289                              <1> 
+   290 000001AC 415A                <1> %%loop_bw: pop r10
+   291 000001AE 4983C230            <1>  add r10, '0'
+   292 000001B2 4989CC              <1>  mov r12, rcx
+   293 000001B5 E8A5FEFFFF          <1>  call print_char
+   294 000001BA 4C89E1              <1>  mov rcx, r12
+   295 000001BD E2ED                <1>  loop %%loop_bw
+   296                              <1> 
+   312                                  
+   313 000001BF E986FEFFFF                          jmp hndl_specf_end
+   314                                  ; ==========================================================================
+   315                                  specf_s:
+   316                                  
+   317                                  ; ==========================================================================
+   318                                  specf_x:    ConvertBH 4, HEX
+   318                              <1> specf_x: 
+   221                              <1> 
+   222 000001C4 4831DB              <1>  xor rbx, rbx
+   223                              <1> 
+   224                              <1> 
+   225 000001C7 B910000000          <1>  mov ecx, 64 / %1
+   226 000001CC 48C1C604            <1> %%nzero: rol rsi, %1
+   227 000001D0 4088F3              <1>  mov bl, sil
+   228 000001D3 80E30F              <1>  and bl, (1 << %1) - 1
+   229 000001D6 80FB00              <1>  cmp bl, 0
+   230 000001D9 E1F1                <1>  loope %%nzero
+   231                              <1> 
+   232 000001DB 7429                <1>  jz %%num_0
+   233 000001DD 48C1CE04            <1>  ror rsi, %1
+   234 000001E1 FFC1                <1>  inc ecx
+   235                              <1> 
+   236 000001E3 48C1C604            <1> %%loop: rol rsi, %1
+   237 000001E7 4088F3              <1>  mov bl, sil
+   238 000001EA 80E30F              <1>  and bl, (1 << %1) - 1
+   239 000001ED 448A93[00000000]    <1>  mov r10b, [%2 + rbx]
+   240 000001F4 4989CC              <1>  mov r12, rcx
+   241 000001F7 E863FEFFFF          <1>  call print_char
+   242 000001FC 4C89E1              <1>  mov rcx, r12
+   243 000001FF E2E2                <1>  loop %%loop
+   244                              <1> 
+   245 00000201 E944FEFFFF          <1>  jmp hndl_specf_end
+   246                              <1> 
+   247                              <1> 
+   248 00000206 448A1425[00000000]  <1> %%num_0: mov r10b, [%2]
+   249 0000020E E84CFEFFFF          <1>  call print_char
+   250                              <1> 
+   251 00000213 E932FEFFFF          <1>  jmp hndl_specf_end
+   252                              <1> 
+   319                                  
+   320 00000218 E92DFEFFFF                          jmp hndl_specf_end ; instead of ret
+   321                                  ; ==========================================================================
+   322                                  section .rodata
+   323 00000000 303132333435363738-     HEX:        db '0123456789ABCDEF' 
+   323 00000009 39414243444546     
+   324 00000010 3031323334353637        OCT:        db '01234567'
+   325 00000018 3031                    BIN:        db '01'
+   326                                  
+   327 0000001A 90<rep 6h>              align 8
+   328                                  jmp_table:
+   329 00000020 [D300000000000000]      dq specf_b
+   330 00000028 [2901000000000000]      dq specf_c
+   331 00000030 [3601000000000000]      dq specf_d
+   332 00000038 [4A00000000000000]      dq hndl_specf_end
+   333 00000040 [4A00000000000000]      dq hndl_specf_end
+   334 00000048 [4A00000000000000]      dq hndl_specf_end
+   335 00000050 [4A00000000000000]      dq hndl_specf_end
+   336 00000058 [4A00000000000000]      dq hndl_specf_end
+   337 00000060 [4A00000000000000]      dq hndl_specf_end
+   338 00000068 [4A00000000000000]      dq hndl_specf_end
+   339 00000070 [4A00000000000000]      dq hndl_specf_end
+   340 00000078 [4A00000000000000]      dq hndl_specf_end
+   341 00000080 [4A00000000000000]      dq hndl_specf_end
+   342 00000088 [8801000000000000]      dq specf_o
+   343 00000090 [4A00000000000000]      dq hndl_specf_end
+   344 00000098 [4A00000000000000]      dq hndl_specf_end
+   345 000000A0 [4A00000000000000]      dq hndl_specf_end
+   346 000000A8 [C401000000000000]      dq specf_s
+   347 000000B0 [4A00000000000000]      dq hndl_specf_end
+   348 000000B8 [4A00000000000000]      dq hndl_specf_end
+   349 000000C0 [4A00000000000000]      dq hndl_specf_end
+   350 000000C8 [4A00000000000000]      dq hndl_specf_end
+   351 000000D0 [C401000000000000]      dq specf_x
+   352                                  
+   353                                  section .data
+   354                                  
+   355 00000000 000000000000000000-     charbuf: db CHARBUF_SIZE dup(0)
+   355 00000009 00000000000000     

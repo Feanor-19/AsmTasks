@@ -5,16 +5,16 @@
 ;   - %s - a c-string;
 ;   - %% - a single '%';
 ;   - %d - decimal integer (int32_t)
-;   - %x - hex integer (int32_t)
-;   - %o - octal integer (int32_t)
-;   - %b - binary integer (int32_t)
+;   - %x - hex integer (uint32_t)
+;   - %o - octal integer (uint32_t)
+;   - %b - binary integer (uint32_t)
 ; =======================================================================
 
 %define GLOBAL_FUNC_NAME _Z9my_printfPKcz
-%define CHARBUF_SIZE 10
+%define CHARBUF_SIZE 16
 
 global GLOBAL_FUNC_NAME
-
+;//TODO - исправить rsi на esi, потому что блин int, а не long
 section .text
 
 GLOBAL_FUNC_NAME:
@@ -209,17 +209,15 @@ specf_perc: call print_char ; just print '%', which is already in the r10b
 ; Specifiers handlers. 
 ; Expects:
 ;    Each of them expects the argument to be in rsi.
-; =======================================================================
-;//REVIEW - можно было написать все преобразования (b, o, x) однообразно
-; и с помощью одного макроса (или ф-ии), но стоит ли оно того? можно и 
-; вовсе одну общую ф-ю перевода сделать, но это будет еще медленнее?
 ; ==========================================================================
-; Macro for converting, called in SPECF_B, SPECF_X
+; Macro for converting & printing, supports BIN, HEX (AND POTENTIALLY BASE 4)
 ; Macro argumets:
 ;   %1) number of bits to represent one digit (1 for BIN, 4 for HEX, etc)
 ;   %2) BIN | HEX
+; Expects:
+;   Number to convert and print in rsi
 ; ==========================================================================
-%macro      Convert 2
+%macro      ConvertBH 2
 
             xor rbx, rbx
 
@@ -254,7 +252,51 @@ specf_perc: call print_char ; just print '%', which is already in the r10b
 
 %endmacro
 ; ==========================================================================
-specf_b:    Convert 1, BIN
+; Macro for converting into bases [2, 10]
+; Macro argumets:
+;   %1) the base: 2, or 3, or 4... or 10
+; Expects:
+;   Number to convert and print in esi
+; ==========================================================================
+%macro      ConvertCmn 1
+            mov r12, rax    ; saving
+
+            ; --------------------------------------------------------------
+            ; if the base is 10 and number < 0, print '-' and turn off the highest bit
+%if %1 == 10
+            test esi, 1 << 31
+            jz %%skip_abs
+            mov r10b, '-'
+            call print_char
+            and esi, (1 << 32) - 1 - (1 << 31)
+%endif
+
+%%skip_abs: 
+            xor rdx, rdx
+            xor rax, rax
+            mov eax, esi
+            mov ebx, %1 ; because div doesn't support immc
+            xor rcx, rcx
+
+%%loop_fw:  div ebx
+            push rdx
+            inc rcx
+            xor rdx, rdx
+            cmp eax, 0
+            jne %%loop_fw
+            
+            mov rax, r12 ; restoring rax
+
+%%loop_bw:  pop r10
+            add r10, '0'
+            mov r12, rcx    ; saving
+            call print_char
+            mov rcx, r12
+            loop %%loop_bw
+
+%endmacro
+; ==========================================================================
+specf_b:    ConvertBH 1, BIN
 
             jmp hndl_specf_end ; instead of ret
 ; ==========================================================================
@@ -262,21 +304,24 @@ specf_c:    mov r10, rsi
             call print_char
             jmp hndl_specf_end ; instead of ret
 ; ==========================================================================
-specf_d:    
+specf_d:    ConvertCmn 10
 
+            jmp hndl_specf_end
 ; ==========================================================================
-specf_o:
+specf_o:    ConvertCmn 8
 
+            jmp hndl_specf_end
 ; ==========================================================================
 specf_s:
 
 ; ==========================================================================
-specf_x:    Convert 4, HEX
+specf_x:    ConvertBH 4, HEX
 
             jmp hndl_specf_end ; instead of ret
 ; ==========================================================================
 section .rodata
 HEX:        db '0123456789ABCDEF' 
+OCT:        db '01234567'
 BIN:        db '01'
 
 align 8
@@ -293,12 +338,12 @@ dq hndl_specf_end
 dq hndl_specf_end
 dq hndl_specf_end
 dq hndl_specf_end
+dq hndl_specf_end
 dq specf_o
 dq hndl_specf_end
 dq hndl_specf_end
 dq hndl_specf_end
 dq specf_s
-dq hndl_specf_end
 dq hndl_specf_end
 dq hndl_specf_end
 dq hndl_specf_end
