@@ -262,13 +262,13 @@ specf_perc: call print_char ; just print '%', which is already in the r10b
             mov r12, rax    ; saving
 
             ; --------------------------------------------------------------
-            ; if the base is 10 and number < 0, print '-' and turn off the highest bit
+            ; if the base is 10 and number < 0, print '-' and convert
 %if %1 == 10
             test esi, 1 << 31
             jz %%skip_abs
             mov r10b, '-'
             call print_char
-            and esi, (1 << 32) - 1 - (1 << 31)
+            neg esi
 %endif
 
 %%skip_abs: 
