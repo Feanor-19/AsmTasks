@@ -10,13 +10,16 @@
 ;   - %b - binary integer (int32_t)
 ; =======================================================================
 
-global _Z9my_printfPKcz
-
+%define GLOBAL_FUNC_NAME _Z9my_printfPKcz
 %define CHARBUF_SIZE 10
+
+global GLOBAL_FUNC_NAME
 
 section .text
 
-_Z9my_printfPKcz:
+;//REVIEW - про jmp вместо call и ret
+
+GLOBAL_FUNC_NAME:
             ; ============================================    
             ; preparing stack frame, so that all POTENTIAL
             ; arguments are located in order in stack
@@ -70,12 +73,15 @@ main_loop:  mov r10b, [rdi]
             ; specf
 specf:      mov r10b, [rdi]
             inc rdi
-            call hndl_specf
+            jmp hndl_specf
 
             ; ---------------
             ; slash
 slash:
 
+            ; ------------------------------------
+            ; back to loop, if not 0x0
+hndl_specf_end:
             jmp main_loop
             ; =====================================
             ; end of main_loop
@@ -157,13 +163,13 @@ prn_chr_end:
             ret
 
 ; =======================================================================
-; hndl_specf
+; hndl_specf - DON'T USE CALL, USE JMP
 ; Description:
 ;   Handles situation when specifier like '%S' is met in the format 
 ;   string. 'S' fully specifier which specifier it is.
 ; Supported specifiers (case sensitive!):
 ;   - %%    - just one character '%'   - no arg;
-;   - %c    - one character            - int8_t (char)
+;   - %c    - one character            - uint8_t (unsigned char)
 ;   - %s    - C-string                 - const char *
 ;   - %d    - decimal integer          - int32_t
 ;   - %x    - hex integer              - int32_t
@@ -181,21 +187,38 @@ hndl_specf:
 %define SPECF_SMALLEST 'b' ; specifier with the smallest ascii value
 %define SPECF_BIGGEST  'x' ; specifier with the biggest ascii value
 
-            cmp r10b, '%'
+            cmp r10b, '%'           ; doesn't need arg, handled separately
             je specf_perc
 
-            cmp r10b, SPECF_BIGGEST
-            ja hndl_specf_end       ; unrecognized, skipping
+            cmp r10b, SPECF_BIGGEST ; if unrecognized, skip
+            ja hndl_specf_end       
 
+            ; all the rest need an arg, getting it into rsi
+            mov rsi, [rbp]
+            add rbp, 0x8
+
+            ; and now jmp to corresponding specifier handler
             sub r10b, SPECF_SMALLEST
             jmp [jmp_table + r10*8]
 
+            ; treating '%%' specially
+specf_perc: call print_char ; just print '%', which is already in the r10b 
+            jmp hndl_specf_end
+
+            ; there is no ret, because every specifier handler jmps to
+            ; label 'hndl_specf_end', which is located in the main loop
+; =======================================================================
+; Specifiers handlers. 
+; Expects:
+;    Each of them expects the argument to be in rsi.
+; =======================================================================
+;//REVIEW - можно было написать все преобразования (b, o, x) однообразно
+; и с помощью одного макроса, но стоит ли оно того?
 specf_b:    
 
-specf_c:    mov r10b, [rbp]
+specf_c:    mov r10, rsi
             call print_char
-            add rbp, 0x8
-            ret
+            jmp hndl_specf_end
 
 specf_d:    
 
@@ -205,10 +228,6 @@ specf_s:
 
 specf_x:
 
-specf_perc: call print_char ; just print '%', which is already in the r10b 
-
-hndl_specf_end:
-            ret
 
 section .rodata
 align 8
