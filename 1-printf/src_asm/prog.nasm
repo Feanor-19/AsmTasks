@@ -17,8 +17,6 @@ global GLOBAL_FUNC_NAME
 
 section .text
 
-;//REVIEW - про jmp вместо call и ret
-
 GLOBAL_FUNC_NAME:
             ; ============================================    
             ; preparing stack frame, so that all POTENTIAL
@@ -213,23 +211,74 @@ specf_perc: call print_char ; just print '%', which is already in the r10b
 ;    Each of them expects the argument to be in rsi.
 ; =======================================================================
 ;//REVIEW - можно было написать все преобразования (b, o, x) однообразно
-; и с помощью одного макроса, но стоит ли оно того?
-specf_b:    
+; и с помощью одного макроса (или ф-ии), но стоит ли оно того? можно и 
+; вовсе одну общую ф-ю перевода сделать, но это будет еще медленнее?
+; ==========================================================================
+; Macro for converting, called in SPECF_B, SPECF_X
+; Macro argumets:
+;   %1) number of bits to represent one digit (1 for BIN, 4 for HEX, etc)
+;   %2) BIN | HEX
+; ==========================================================================
+%macro      Convert 2
 
+            xor rbx, rbx
+
+            ; skipping leading zeroes
+            mov ecx, 64 / %1
+%%nzero:    rol rsi, %1
+            mov bl, sil
+            and bl, (1 << %1) - 1
+            cmp bl, 0
+            loope %%nzero
+
+            jz %%num_0    ; the number to print is zero, special case
+            ror rsi, %1
+            inc ecx
+
+%%loop:     rol rsi, %1
+            mov bl, sil
+            and bl, (1 << %1) - 1
+            mov r10b, [%2 + rbx]
+            mov r12, rcx ; saving
+            call print_char
+            mov rcx, r12  
+            loop %%loop
+
+            jmp hndl_specf_end ; instead of ret
+
+            ; if the number to print is 0
+%%num_0:    mov r10b, [%2]
+            call print_char
+
+            jmp hndl_specf_end ; instead of ret
+
+%endmacro
+; ==========================================================================
+specf_b:    Convert 1, BIN
+
+            jmp hndl_specf_end ; instead of ret
+; ==========================================================================
 specf_c:    mov r10, rsi
             call print_char
-            jmp hndl_specf_end
-
+            jmp hndl_specf_end ; instead of ret
+; ==========================================================================
 specf_d:    
 
+; ==========================================================================
 specf_o:
 
+; ==========================================================================
 specf_s:
 
-specf_x:
+; ==========================================================================
+specf_x:    Convert 4, HEX
 
-
+            jmp hndl_specf_end ; instead of ret
+; ==========================================================================
 section .rodata
+HEX:        db '0123456789ABCDEF' 
+BIN:        db '01'
+
 align 8
 jmp_table:
 dq specf_b
@@ -249,6 +298,7 @@ dq hndl_specf_end
 dq hndl_specf_end
 dq hndl_specf_end
 dq specf_s
+dq hndl_specf_end
 dq hndl_specf_end
 dq hndl_specf_end
 dq hndl_specf_end
