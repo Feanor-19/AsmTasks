@@ -58,9 +58,6 @@ main_loop:  mov r10b, [rdi]
             cmp r10b, '%'
             je specf
             
-            cmp r10b, '\'
-            je slash
-
             ; common char or 0x0
             call print_char
 
@@ -72,11 +69,6 @@ main_loop:  mov r10b, [rdi]
 specf:      mov r10b, [rdi]
             inc rdi
             jmp hndl_specf
-
-            ; ---------------
-            ; slash
-slash:
-
             ; ------------------------------------
             ; back to loop, if not 0x0
 hndl_specf_end:
@@ -312,8 +304,14 @@ specf_o:    ConvertCmn 8
 
             jmp hndl_specf_end
 ; ==========================================================================
-specf_s:
+specf_s:    
+sp_s_loop:  mov r10b, [rsi]
+            inc rsi
+            call print_char
+            cmp r10b, 0x0
+            jne sp_s_loop
 
+            jmp hndl_specf_end
 ; ==========================================================================
 specf_x:    ConvertBH 4, HEX
 
