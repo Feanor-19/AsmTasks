@@ -1,20 +1,25 @@
 ; =======================================================================
 ; int myprintf(const char *format, ...)
-; Supported specifiers:
-;   - %c - one character;
-;   - %s - a c-string;
-;   - %% - a single '%';
-;   - %d - decimal integer (int32_t)
-;   - %x - hex integer (uint32_t)
-;   - %o - octal integer (uint32_t)
-;   - %b - binary integer (uint32_t)
+; Supported specifiers (case sensitive!):
+;   - %%    - just one character '%'   - no arg;
+;   - %c    - one character            - uint8_t (unsigned char)
+;   - %s    - C-string                 - const char *
+;   - %d    - decimal integer          - int32_t
+;   - %x    - hex integer              - uint32_t
+;   - %o    - octal integer            - uint32_t
+;   - %b    - binary integer           - uint32_t
+; Use of registers (throughot the whole func):
+;   - eax - num of written chars (is returned)
+;   - rdi - points at the current char in the format string
+;   - rbp - base in stack to access arranged arguments
+;   - r11 - index in the buffer of func 'print_char'
+;   
 ; =======================================================================
 
 %define GLOBAL_FUNC_NAME _Z9my_printfPKcz
 %define CHARBUF_SIZE 16
 
 global GLOBAL_FUNC_NAME
-;//TODO - исправить rsi на esi, потому что блин int, а не long
 section .text
 
 GLOBAL_FUNC_NAME:
@@ -39,7 +44,7 @@ GLOBAL_FUNC_NAME:
             push rbx
             push rbp
             push r12
-            push r13
+            push r13 
             push r14
             push r15
 
@@ -76,7 +81,7 @@ hndl_specf_end:
             ; =====================================
             ; end of main_loop
 printf_end: 
-
+ 
             pop r15
             pop r14
             pop r13
@@ -103,7 +108,8 @@ printf_end:
 ; Args:
 ;   - r10b - char to store to buffer and print.
 ;   - eax  - stores number of already written bytes here, or sets it to -1
-;           in case of error.
+;           in case of error. Must be set to 0 before first call of 
+;           this func.
 ; Expects: 
 ;   - r11 - index in the buffer, must be set to 0 before first call of 
 ;           this func; must not be changed outside of this func.
@@ -162,9 +168,9 @@ prn_chr_end:
 ;   - %c    - one character            - uint8_t (unsigned char)
 ;   - %s    - C-string                 - const char *
 ;   - %d    - decimal integer          - int32_t
-;   - %x    - hex integer              - int32_t
-;   - %o    - octal integer            - int32_t
-;   - %b    - binary integer           - int32_t
+;   - %x    - hex integer              - uint32_t
+;   - %o    - octal integer            - uint32_t
+;   - %b    - binary integer           - uint32_t
 ; Arguments:
 ;   - r10   - the character 'S' (see description)
 ; Expects:
@@ -187,7 +193,7 @@ hndl_specf:
             mov rsi, [rbp]
             add rbp, 0x8
 
-            ; and now jmp to corresponding specifier handler
+            ; jmp to corresponding specifier handler
             sub r10b, SPECF_SMALLEST
             jmp [jmp_table + r10*8]
 
@@ -207,25 +213,25 @@ specf_perc: call print_char ; just print '%', which is already in the r10b
 ;   %1) number of bits to represent one digit (1 for BIN, 4 for HEX, etc)
 ;   %2) BIN | HEX
 ; Expects:
-;   Number to convert and print in rsi
+;   Number to convert and print in esi
 ; ==========================================================================
 %macro      ConvertBH 2
 
             xor rbx, rbx
 
             ; skipping leading zeroes
-            mov ecx, 64 / %1
-%%nzero:    rol rsi, %1
+            mov ecx, 32 / %1
+%%nzero:    rol esi, %1
             mov bl, sil
             and bl, (1 << %1) - 1
             cmp bl, 0
             loope %%nzero
 
             jz %%num_0    ; the number to print is zero, special case
-            ror rsi, %1
+            ror esi, %1
             inc ecx
 
-%%loop:     rol rsi, %1
+%%loop:     rol esi, %1
             mov bl, sil
             and bl, (1 << %1) - 1
             mov r10b, [%2 + rbx]
@@ -292,7 +298,7 @@ specf_b:    ConvertBH 1, BIN
 
             jmp hndl_specf_end ; instead of ret
 ; ==========================================================================
-specf_c:    mov r10, rsi
+specf_c:    mov r10b, sil
             call print_char
             jmp hndl_specf_end ; instead of ret
 ; ==========================================================================
