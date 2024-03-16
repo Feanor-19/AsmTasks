@@ -10,6 +10,8 @@ int main()
     const char *test4 = "%o, %o, %o, %o, %o, %o, %o, %o";
     const char *test5 = "%d, %d, %d, %d, %d, %d, %d, %d";
     const char *test6 = "%s";
+    const char *test7 = "Percent: %%, char: %c, %nhex: %x, oct: %o, dec: %d\n"
+                        "String: <%s>\n%n";
     int chars = 0;
 
     chars = my_printf( test1 );
@@ -45,6 +47,12 @@ int main()
     printf("\nMyReturn: %d\n", chars);
     chars = printf   ( test6, "Test String!\nSecond...\nThird!\n" );
     printf("\nPrintfReturn: %d\n\n", chars);
+
+    int n1 = 0, n2 = 0;
+    chars = my_printf( test7, 'F', &n1, 19, -12345, -119, "The\tString", &n2 );
+    printf("\nMyReturn: %d; %%n1 = %d, %%n2 = %d.\n\n", chars, n1, n2);
+    chars = printf   ( test7, 'F', &n1, 19, -12345, -119, "The\tString", &n2  );
+    printf("\nPrintfReturn: %d; %%n1 = %d, %%n2 = %d.\n\n", chars, n1, n2);
 
     return 0;
 }

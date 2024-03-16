@@ -1,13 +1,14 @@
 ; =======================================================================
 ; int myprintf(const char *format, ...)
 ; Supported specifiers (case sensitive!):
-;   - %%    - just one character '%'   - no arg;
-;   - %c    - one character            - uint8_t (unsigned char)
-;   - %s    - C-string                 - const char *
-;   - %d    - decimal integer          - int32_t
-;   - %x    - hex integer              - uint32_t
-;   - %o    - octal integer            - uint32_t
-;   - %b    - binary integer           - uint32_t
+;   - %% - just one character '%'                           - no arg;
+;   - %c - one character                                    - uint8_t 
+;   - %s - C-string                                         - const char *
+;   - %d - decimal integer                                  - int32_t
+;   - %x - hex integer                                      - uint32_t
+;   - %o - octal integer                                    - uint32_t
+;   - %b - binary integer                                   - uint32_t
+;   - %n - puts num of already written chars by given ptr   - int * 
 ; Use of registers (throughot the whole func):
 ;   - eax - num of written chars (is returned)
 ;   - rdi - points at the current char in the format string
@@ -164,13 +165,14 @@ prn_chr_end:
 ;   Handles situation when specifier like '%S' is met in the format 
 ;   string. 'S' fully specifier which specifier it is.
 ; Supported specifiers (case sensitive!):
-;   - %%    - just one character '%'   - no arg;
-;   - %c    - one character            - uint8_t (unsigned char)
-;   - %s    - C-string                 - const char *
-;   - %d    - decimal integer          - int32_t
-;   - %x    - hex integer              - uint32_t
-;   - %o    - octal integer            - uint32_t
-;   - %b    - binary integer           - uint32_t
+;   - %% - just one character '%'                           - no arg;
+;   - %c - one character                                    - uint8_t 
+;   - %s - C-string                                         - const char *
+;   - %d - decimal integer                                  - int32_t
+;   - %x - hex integer                                      - uint32_t
+;   - %o - octal integer                                    - uint32_t
+;   - %b - binary integer                                   - uint32_t
+;   - %n - puts num of already written chars by given ptr   - int * 
 ; Arguments:
 ;   - r10   - the character 'S' (see description)
 ; Expects:
@@ -323,6 +325,13 @@ specf_x:    ConvertBH 4, HEX
 
             jmp hndl_specf_end ; instead of ret
 ; ==========================================================================
+specf_n:    mov r10b, 0x0   ; flush buf
+            call print_char
+
+            mov [rsi], eax
+
+            jmp hndl_specf_end ; instead of ret
+; ==========================================================================
 section .rodata
 HEX:        db '0123456789ABCDEF' 
 OCT:        db '01234567'
@@ -342,7 +351,7 @@ dq hndl_specf_end
 dq hndl_specf_end
 dq hndl_specf_end
 dq hndl_specf_end
-dq hndl_specf_end
+dq specf_n
 dq specf_o
 dq hndl_specf_end
 dq hndl_specf_end
