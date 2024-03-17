@@ -45,9 +45,6 @@ GLOBAL_FUNC_NAME:
             push rbx
             push rbp
             push r12
-            push r13 
-            push r14
-            push r15
 
             mov rbp, r11 ; now r11 is free
 
@@ -83,9 +80,6 @@ hndl_specf_end:
             ; end of main_loop
 printf_end: 
  
-            pop r15
-            pop r14
-            pop r13
             pop r12
             pop rbp
             pop rbx
