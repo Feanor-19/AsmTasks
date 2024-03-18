@@ -17,7 +17,7 @@
 ;   
 ; =======================================================================
 
-%define GLOBAL_FUNC_NAME _Z9my_printfPKcz
+%define GLOBAL_FUNC_NAME my_printf
 %define CHARBUF_SIZE 16
 
 global GLOBAL_FUNC_NAME
@@ -114,7 +114,7 @@ print_char:
             je flush_buf
 
             cmp eax, -1     ; check if error already happened
-            je prn_chr_end
+            je prn_chr_ret
 
             mov [charbuf + r11], r10b
             inc r11
@@ -122,6 +122,7 @@ print_char:
             cmp r11, CHARBUF_SIZE
             je flush_buf
             
+prn_chr_ret:
             ret
 
 flush_buf:  
@@ -148,7 +149,7 @@ prn_chr_end:
             ; it already has the needed value
             add rsp, 0x8    ; skipping eax
 
-            pop rdx
+            pop rdx 
             pop rsi
             pop rdi
             ret
@@ -213,7 +214,7 @@ specf_perc: call print_char ; just print '%', which is already in the r10b
 ; ==========================================================================
 %macro      ConvertBH 2
 
-            xor rbx, rbx
+            xor ebx, ebx
 
             ; skipping leading zeroes
             mov ecx, 32 / %1
@@ -267,7 +268,7 @@ specf_perc: call print_char ; just print '%', which is already in the r10b
 
 %%skip_abs: 
             xor rdx, rdx
-            xor rax, rax
+            ;xor rax, rax
             mov eax, esi
             mov ebx, %1 ; because div doesn't support immc
             xor rcx, rcx
@@ -328,7 +329,6 @@ specf_n:    mov r10b, 0x0   ; flush buf
 ; ==========================================================================
 section .rodata
 HEX:        db '0123456789ABCDEF' 
-OCT:        db '01234567'
 BIN:        db '01'
 
 align 8
@@ -357,6 +357,6 @@ dq hndl_specf_end
 dq hndl_specf_end
 dq specf_x
 
-section .data
+section .bss
 
-charbuf: db CHARBUF_SIZE dup(0)
+charbuf: db CHARBUF_SIZE dup(?)

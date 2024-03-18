@@ -1,5 +1,5 @@
 SRC_ASM_EXT = .nasm
-SRC_C_EXT   = .cpp
+SRC_C_EXT   = .c
 
 SRC_ASM = ./src_asm
 SRC_C   = ./src_c
