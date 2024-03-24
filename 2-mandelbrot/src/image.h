@@ -1,5 +1,5 @@
-#ifndef MANDELBROT_GRAPHICS
-#define MANDELBROT_GRAPHICS
+#ifndef MANDELBROT_IMAGE
+#define MANDELBROT_IMAGE
 
 #include "common.h"
 
@@ -13,4 +13,4 @@ void set_pixel_color( unsigned i, unsigned j, u_int8_t step_number );
 //! @brief Get const IMAGE reference.
 const sf::Image& get_image();
 
-#endif /* MANDELBROT_GRAPHICS */
+#endif /* MANDELBROT_IMAGE */

@@ -10,11 +10,11 @@ void calculate_image( unsigned image_width, unsigned image_height,
         for ( unsigned j = 0; j < image_width; j++ )
         {
             double curr_x = top_left_x + j*step;
-            double curr_y = top_left_y + i*step;
+            double curr_y = top_left_y - i*step; //< axis 'i' points down
 
 
             //TODO - TEST!!!
-            ret_res( i, j, pow(sin( curr_x ), 2) + pow(sin( curr_y ), 2) <= 1.0 ? 128 : 0 );
+            ret_res( i, j, curr_x*curr_x + curr_y*curr_y <= 4.0 ? 128 : 0 );
         }
     }
 }

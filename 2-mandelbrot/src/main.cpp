@@ -1,18 +1,18 @@
 #include "common.h"
-#include "graphics.h"
+#include "handlers.h"
+#include "image.h"
 #include "mandelbrot.h"
 
-void handle_events( sf::Window &window );
-
-
-int main(  )
+int main()
 {
     sf::RenderWindow window(sf::VideoMode( W_WIDTH, W_HEIGHT ), W_NAME, 
                             sf::Style::Titlebar | sf::Style::Close);
+    State state;
 
     // drawing initial image
-    init_image( W_WIDTH, W_HEIGHT );
-    calculate_image( W_WIDTH, W_HEIGHT, DEFAULT_TOP_LEFT_X, DEFAULT_TOP_LEFT_Y, DEFAULT_STEP, set_pixel_color );
+    init_image( state.window_width, state.window_height );
+    calculate_image( state.window_width, state.window_height, state.top_left_x, 
+                     state.top_left_y, state.step, set_pixel_color );
 
     sf::Texture window_texture;
     window_texture.loadFromImage( get_image() );
@@ -25,22 +25,19 @@ int main(  )
     {
         handle_events(window);
 
+        if ( handle_keyboard( &state ) )
+        {
+            init_image( state.window_width, state.window_height );
+            calculate_image( state.window_width, state.window_height, state.top_left_x, 
+                             state.top_left_y, state.step, set_pixel_color );
+            window_texture.update( get_image() );
+        }
+
         // no window.clear(), because sprite takes up the whole window
         // and is always opaque
 
         window.draw( window_sprite );
-
         window.display();
     }
     
-}
-
-void handle_events( sf::Window &window )
-{
-    sf::Event event = {};
-    while (window.pollEvent(event))
-    {
-        if (event.type == sf::Event::Closed)
-            window.close();
-    }
 }
