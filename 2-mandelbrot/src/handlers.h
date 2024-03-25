@@ -5,7 +5,7 @@
 
 
 //! @brief Handles events of the given window.
-void handle_events( sf::Window &window );
+void handle_events( sf::Window &window, const State *state_ptr );
 
 //! @brief Handles keyboard, changes *state_ptr if needed.
 //! @return true if *state_ptr was changed, 0 otherwise.

@@ -23,7 +23,7 @@ int main()
     // main loop
     while (window.isOpen())
     {
-        handle_events(window);
+        handle_events(window, &state);
 
         if ( handle_keyboard( &state ) )
         {
