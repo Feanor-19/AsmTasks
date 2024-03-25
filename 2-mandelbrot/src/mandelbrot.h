@@ -3,12 +3,6 @@
 
 #include "common.h"
 
-
-//! @brief Everything not in the circle of this radius centered at 
-//! coordinate system's origin is considered the 'DEAD ZONE'.
-const double DEATH_RADIUS = 10.0; 
-
-
 //! @details Calculates for all points in specified area (see below) 
 //! number of steps it takes the point to enter the 'DEAD ZONE' (see .h).
 //! If ret_res != NULL, calls this func for every calculated point, using

@@ -8,7 +8,7 @@ CFLAGS = 	-Wshadow -Winit-self -Wredundant-decls -Wcast-align -Wundef 				\
 			-Wignored-qualifiers -Wlogical-op -Wno-missing-field-initializers 			\
 			-Wnon-virtual-dtor -Woverloaded-virtual -Wpointer-arith -Wsign-promo 		\
 			-Wstack-usage=8192 -Wstrict-aliasing -Wstrict-null-sentinel -Wtype-limits 	\
-			-Wwrite-strings -Werror=vla -D_DEBUG -D_EJUDGE_CLIENT_SIDE
+			-Wwrite-strings -Werror=vla -D_DEBUG -D_EJUDGE_CLIENT_SIDE -O3
 
 OBJ = obj
 SRC = src
