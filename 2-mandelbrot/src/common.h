@@ -13,7 +13,7 @@ const double DEFAULT_TOP_LEFT_X = -2.0;
 const double DEFAULT_TOP_LEFT_Y = 1.5;
 const double DEFAULT_STEP       = 2.0 / (W_WIDTH / 2);
 
-
+const u_int8_t INFINITE_STEP_NUMBER = __UINT8_MAX__;
 
 const double ZOOM_MUL = 1.01;
 

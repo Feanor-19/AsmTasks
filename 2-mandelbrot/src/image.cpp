@@ -17,7 +17,7 @@ void init_image( unsigned width, unsigned height, sf::Color filling_color )
 
 inline sf::Color step_number_to_color( u_int8_t step_number )
 {
-    if (step_number == 0)
+    if (step_number == INFINITE_STEP_NUMBER)
         return sf::Color::Black;
 
     return sf::Color(255 - step_number,
