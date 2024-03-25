@@ -17,10 +17,12 @@ void init_image( unsigned width, unsigned height, sf::Color filling_color )
 
 inline sf::Color step_number_to_color( u_int8_t step_number )
 {
-    // TODO
-    return sf::Color(step_number % __UINT8_MAX__,
-                     0,
-                     0 );
+    if (step_number == 0)
+        return sf::Color::Black;
+
+    return sf::Color(255 - step_number,
+                     (step_number % 2)*64,
+                     step_number );
 }
 
 void set_pixel_color( unsigned i, unsigned j, u_int8_t step_number )
