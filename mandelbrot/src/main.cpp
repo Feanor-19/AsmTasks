@@ -2,10 +2,16 @@
 #include "handlers.h"
 #include "image.h"
 #include "mandelbrot.h"
+#include "cmdargs.h"
 
-int main()
+int main(int argc, char **argv)
 {
-    sf::RenderWindow window(sf::VideoMode( W_WIDTH, W_HEIGHT ), W_NAME, 
+    Settings settings;
+    parse_cmd_args(argc, argv, &settings);
+
+    // -------------------------------------------------------
+
+    sf::RenderWindow window(sf::VideoMode( DEFAULT_W_WIDTH, DEFAULT_W_HEIGHT ), W_NAME, 
                             sf::Style::Titlebar | sf::Style::Close);
     State state;
 

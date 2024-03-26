@@ -1,4 +1,7 @@
 #include "mandelbrot.h"
+#include "SFML/Config.hpp"
+
+// ----------------------------- LEVEL OF OPTIMIZATION: 0 -----------------------------------------
 
 //! @brief Calculates at which step number given point (start_x, start_y)
 //! enters dead zone. 
@@ -10,7 +13,7 @@ inline u_int8_t calc_step_number( double start_x, double start_y )
     u_int8_t step_number = 0;
     for ( ; step_number < INFINITE_STEP_NUMBER; step_number++ )
     {
-        if (curr_x*curr_x + curr_y*curr_y >= DEATH_RADIUS * DEATH_RADIUS)
+        if (curr_x*curr_x + curr_y*curr_y >= DEFAULT_DEATH_RADIUS * DEFAULT_DEATH_RADIUS)
             break;
 
         double new_curr_x = curr_x*curr_x - curr_y*curr_y + start_x;
@@ -38,3 +41,5 @@ void calculate_image( unsigned image_width, unsigned image_height,
         }
     }
 }
+
+// ------------------------------------------------------------------------------------------------
